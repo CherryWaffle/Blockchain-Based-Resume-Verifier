@@ -2,7 +2,9 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.6",
     "axios": "^1.16.0",
-    "solc": "^0.8.20"
+    "dotenv": "^17.4.2",
+    "solc": "^0.8.20",
+    "web3": "^4.16.0"
   },
   "name": "blockchain-based-resume-verifier",
   "version": "1.0.0",
