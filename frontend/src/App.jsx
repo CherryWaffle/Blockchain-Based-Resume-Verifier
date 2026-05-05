@@ -109,7 +109,7 @@ function App() {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.detail || data.message || 'Request failed');
+      throw new Error(data.detail || data.message || data.error || 'Request failed');
     }
     return data;
   }
@@ -122,11 +122,11 @@ function App() {
     }
     try {
       setBusy(true);
-      const result = await requestJson('/issuer/register-issuer', {
+      const result = await requestJson('/issuer/register', {
         method: 'POST',
-        body: JSON.stringify({ issuer_address: issuerForm.issuerAddress }),
+        body: JSON.stringify({ issuer: issuerForm.issuerAddress }),
       });
-      setNotice(`Issuer registered. Tx: ${result.transaction_hash}`);
+      setNotice(`Issuer registered. Tx: ${result.receipt?.transactionHash || 'submitted'}`);
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -138,24 +138,22 @@ function App() {
     event.preventDefault();
     try {
       setBusy(true);
-      const result = await requestJson('/issuer/issue-credential', {
+      const result = await requestJson('/issuer/issue', {
         method: 'POST',
         body: JSON.stringify({
-          candidate_name: issuerForm.candidateName,
-          candidate_wallet: issuerForm.candidateWallet,
+          candidateWallet: issuerForm.candidateWallet,
+          candidateName: issuerForm.candidateName,
           degree: issuerForm.degree,
           institution: issuerForm.institution,
-          issue_date: Number(issuerForm.issueDate),
-          expiry_date: Number(issuerForm.expiryDate),
-          issuer_name: issuerForm.issuerName,
-          email: issuerForm.email,
+          issueDate: Number(issuerForm.issueDate),
+          expiryDate: Number(issuerForm.expiryDate),
           metadata: {
             source: 'frontend',
             submittedBy: walletAddress || issuerForm.issuerAddress || '',
           },
         }),
       });
-      setNotice(`Credential issued with ID ${result.credential_id}`);
+      setNotice(`Credential issued with ID ${result.credentialId || 'unknown'} (CID ${result.ipfsCid || 'n/a'})`);
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -172,7 +170,7 @@ function App() {
 
     try {
       setBusy(true);
-      const result = await requestJson(`/candidate/wallet/${candidateQuery.wallet}/credentials`);
+      const result = await requestJson(`/candidate/by-owner/${candidateQuery.wallet}`);
       setCandidateCredentials(result.credentials || []);
       setNotice(`Loaded ${result.credentials?.length || 0} credential(s) for ${candidateQuery.wallet}`);
     } catch (error) {
@@ -191,7 +189,7 @@ function App() {
 
     try {
       setBusy(true);
-      const result = await requestJson(`/verify/credential/${verifierQuery.credentialId}`);
+      const result = await requestJson(`/verify/onchain/${verifierQuery.credentialId}`);
       setVerifierResult(result.credential);
       setNotice(`Verified credential ${verifierQuery.credentialId}`);
     } catch (error) {
@@ -210,7 +208,7 @@ function App() {
 
     try {
       setBusy(true);
-      const result = await requestJson(`/verify/wallet/${verifierQuery.wallet}`);
+      const result = await requestJson(`/candidate/by-owner/${verifierQuery.wallet}`);
       setVerifierResult({
         wallet_address: result.wallet_address,
         credentials: result.credentials,
@@ -407,7 +405,7 @@ function App() {
                       <StatusBadge valid={verifierResult.valid} revoked={verifierResult.revoked} expired={verifierResult.expired} />
                     </div>
                     <div className="mt-4 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
-                      <p>Issuer: {shortenAddress(verifierResult.issuer)}</p>
+                      <p>Issuer: {shortenAddress(verifierResult.issuer_wallet)}</p>
                       <p>Wallet: {shortenAddress(verifierResult.candidate_wallet)}</p>
                       <p>Degree: {verifierResult.degree}</p>
                       <p>Institution: {verifierResult.institution}</p>

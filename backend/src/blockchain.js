@@ -19,7 +19,13 @@ function getContract() {
 async function sendTx(txObject) {
   if (!privateKey) throw new Error('PRIVATE_KEY not set');
   const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-  const signed = await account.signTransaction(txObject);
+  const from = account.address;
+  const chainId = await web3.eth.getChainId();
+  const nonce = await web3.eth.getTransactionCount(from, 'pending');
+  const gasPrice = await web3.eth.getGasPrice();
+  const gas = txObject.gas || (await web3.eth.estimateGas({ from, to: txObject.to, data: txObject.data }));
+  const tx = { ...txObject, from, gas, gasPrice, nonce, chainId };
+  const signed = await account.signTransaction(tx);
   return web3.eth.sendSignedTransaction(signed.rawTransaction);
 }
 

@@ -1,12 +1,25 @@
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
+const https = require('https');
 
 // OpenZeppelin release tag to fetch matching sources
 const OZ_TAG = 'v4.9.6';
 
-function posixJoin(...parts) {
-  return parts.map(p => p.replace(/\\/g, '/')).join('/');
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, { headers: { 'User-Agent': 'solcjs-compiler' } }, res => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+          res.resume();
+          return;
+        }
+        let data = '';
+        res.on('data', chunk => (data += chunk));
+        res.on('end', () => resolve(data));
+      })
+      .on('error', reject);
+  });
 }
 
 async function fetchOpenZeppelinFile(ozPath) {
@@ -14,9 +27,10 @@ async function fetchOpenZeppelinFile(ozPath) {
   const prefix = '@openzeppelin/contracts/';
   if (!ozPath.startsWith(prefix)) throw new Error('Unsupported OZ path: ' + ozPath);
   const rel = ozPath.slice(prefix.length);
+  const localPath = path.resolve(__dirname, '..', 'node_modules', '@openzeppelin', 'contracts', rel);
+  if (fs.existsSync(localPath)) return fs.readFileSync(localPath, 'utf8');
   const url = `https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/${OZ_TAG}/contracts/${rel}`;
-  const res = await axios.get(url);
-  return res.data;
+  return await fetchUrl(url);
 }
 
 function findImportsInSource(src) {
@@ -106,6 +120,11 @@ async function main() {
     language: 'Solidity',
     sources: fullSources,
     settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      },
+      viaIR: true,
       outputSelection: {
         '*': {
           '*': ['abi', 'evm.bytecode']

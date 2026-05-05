@@ -1,6 +1,28 @@
 {
   "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6",
     "axios": "^1.16.0",
     "solc": "^0.8.20"
-  }
+  },
+  "name": "blockchain-based-resume-verifier",
+  "version": "1.0.0",
+  "description": "Blockchain-based resume credential verifier for Polygon PoS.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CherryWaffle/Blockchain-Based-Resume-Verifier.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CherryWaffle/Blockchain-Based-Resume-Verifier/issues"
+  },
+  "homepage": "https://github.com/CherryWaffle/Blockchain-Based-Resume-Verifier#readme"
 }
