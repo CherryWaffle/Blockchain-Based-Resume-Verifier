@@ -143,6 +143,9 @@ async function main() {
 
   for (const fileName of Object.keys(output.contracts)) {
     for (const contractName of Object.keys(output.contracts[fileName])) {
+      if (contractName !== 'ResumeVerifier') {
+        continue;
+      }
       const contract = output.contracts[fileName][contractName];
       const out = {
         abi: contract.abi,
