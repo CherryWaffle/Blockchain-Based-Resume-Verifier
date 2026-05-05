@@ -26,7 +26,7 @@ Copy `.env.example` to `.env` and fill in your local secrets. This repository is
 Required variables:
 
 - `PRIVATE_KEY`
-- `ALCHEMY_MUMBAI_URL`
+- `ALCHEMY_AMOY_URL`
 - `CONTRACT_ADDRESS`
 - `PINATA_API_KEY`
 - `PINATA_SECRET_KEY`

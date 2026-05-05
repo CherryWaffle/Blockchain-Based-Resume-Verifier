@@ -8,7 +8,7 @@ load_dotenv()
 
 class Settings(BaseModel):
     private_key: str = Field(default_factory=lambda: os.getenv('PRIVATE_KEY', ''))
-    alchemy_mumbai_url: str = Field(default_factory=lambda: os.getenv('ALCHEMY_MUMBAI_URL', ''))
+    alchemy_amoy_url: str = Field(default_factory=lambda: os.getenv('ALCHEMY_AMOY_URL', ''))
     contract_address: str = Field(default_factory=lambda: os.getenv('CONTRACT_ADDRESS', ''))
     pinata_api_key: str = Field(default_factory=lambda: os.getenv('PINATA_API_KEY', ''))
     pinata_secret_key: str = Field(default_factory=lambda: os.getenv('PINATA_SECRET_KEY', ''))

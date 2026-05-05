@@ -71,7 +71,7 @@ CONTRACT_ABI = [
 
 
 def get_web3() -> Web3:
-    provider_url = settings.alchemy_mumbai_url or 'http://127.0.0.1:8545'
+    provider_url = settings.alchemy_amoy_url or 'http://127.0.0.1:8545'
     web3 = Web3(Web3.HTTPProvider(provider_url))
     if ExtraDataToPOAMiddleware is not None:
         web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)

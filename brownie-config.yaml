@@ -13,5 +13,5 @@ networks:
     host: http://127.0.0.1
     cmd_settings:
       accounts: 10
-  polygon-mumbai:
-    chainid: 80001
+  polygon-amoy:
+    chainid: 80002
