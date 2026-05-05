@@ -16,6 +16,10 @@ build/
 reports/
 coverage.json
 
+# Backend ABI artifacts (keep ResumeVerifier.json only)
+backend/abi/*.json
+!backend/abi/ResumeVerifier.json
+
 # Node
 node_modules/
 frontend/node_modules/
