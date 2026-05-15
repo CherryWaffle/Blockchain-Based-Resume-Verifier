@@ -21,4 +21,12 @@ const VerificationSchema = new Schema({
   checkedAt: { type: Date, default: Date.now }
 });
 
-module.exports = { CredentialSchema, VerificationSchema };
+const SignedRequestSchema = new Schema({
+  issuer: String,
+  nonce: String,
+  usedAt: { type: Date, default: Date.now }
+});
+
+SignedRequestSchema.index({ issuer: 1, nonce: 1 }, { unique: true });
+
+module.exports = { CredentialSchema, VerificationSchema, SignedRequestSchema };

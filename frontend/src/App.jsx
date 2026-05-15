@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BrowserProvider } from 'ethers';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '';
 
 const emptyIssuerForm = {
   issuerAddress: '',
@@ -137,10 +138,62 @@ function App() {
   async function handleIssueCredential(event) {
     event.preventDefault();
     try {
+      if (!walletAddress) {
+        setNotice('Connect MetaMask to sign the issuance request.');
+        return;
+      }
+      if (!CONTRACT_ADDRESS) {
+        setNotice('VITE_CONTRACT_ADDRESS is not set.');
+        return;
+      }
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const network = await provider.getNetwork();
+      const chainId = Number(network.chainId);
+      const issuer = await signer.getAddress();
+      const nonce = (BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1000000))).toString();
+      const deadline = Math.floor(Date.now() / 1000) + 10 * 60;
+
+      const typedDataDomain = {
+        name: 'ResumeVerifier',
+        version: '1',
+        chainId,
+        verifyingContract: CONTRACT_ADDRESS,
+      };
+      const typedDataTypes = {
+        IssueCredential: [
+          { name: 'issuer', type: 'address' },
+          { name: 'candidateWallet', type: 'address' },
+          { name: 'candidateName', type: 'string' },
+          { name: 'degree', type: 'string' },
+          { name: 'institution', type: 'string' },
+          { name: 'issueDate', type: 'uint256' },
+          { name: 'expiryDate', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+      };
+      const typedDataMessage = {
+        issuer,
+        candidateWallet: issuerForm.candidateWallet,
+        candidateName: issuerForm.candidateName,
+        degree: issuerForm.degree,
+        institution: issuerForm.institution,
+        issueDate: Number(issuerForm.issueDate),
+        expiryDate: Number(issuerForm.expiryDate),
+        nonce,
+        deadline,
+      };
+
+      const signature = await signer.signTypedData(typedDataDomain, typedDataTypes, typedDataMessage);
       setBusy(true);
       const result = await requestJson('/issuer/issue', {
         method: 'POST',
         body: JSON.stringify({
+          issuer,
+          signature,
+          nonce,
+          deadline,
           candidateWallet: issuerForm.candidateWallet,
           candidateName: issuerForm.candidateName,
           degree: issuerForm.degree,

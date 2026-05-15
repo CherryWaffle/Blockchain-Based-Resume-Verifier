@@ -51,6 +51,7 @@ Create a root `.env` (copy from `.env.example`). These values are required:
 Optional frontend env:
 
 - `VITE_BACKEND_URL` (defaults to `http://localhost:8000`)
+- `VITE_CONTRACT_ADDRESS` (required for secure issuance signing)
 
 ## Build & Run 🚀
 
@@ -111,6 +112,10 @@ npm run dev
 
 If you use MongoDB Atlas, whitelist your current IP (or temporarily `0.0.0.0/0`). ⚠️
 
+### Secure issuance flow 🔐
+
+The backend now requires an EIP-712 signature for `/issuer/issue`. The frontend signs the issuance payload with MetaMask and sends `issuer`, `nonce`, `deadline`, and `signature` alongside the credential fields.
+
 ### 6) Start frontend
 
 ```bash
@@ -135,7 +140,7 @@ node -e "const fs=require('fs');const Web3Pkg=require('web3');const Web3=Web3Pkg
 - `POST /issuer/register`
 	- body: `{ "issuer": "0x..." }`
 - `POST /issuer/issue`
-	- body: `{ "candidateWallet", "candidateName", "degree", "institution", "issueDate", "expiryDate", "metadata" }`
+	- body: `{ "issuer", "signature", "nonce", "deadline", "candidateWallet", "candidateName", "degree", "institution", "issueDate", "expiryDate", "metadata" }`
 - `GET /candidate/by-owner/:owner`
 - `GET /verify/onchain/:credentialId`
 
