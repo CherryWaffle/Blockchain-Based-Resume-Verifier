@@ -1,8 +1,13 @@
 const Web3 = require('web3');
 const fs = require('fs');
-const { alchemyUrl, privateKey, contractAddress, contractAbiPath } = require('./config');
+const { rpcUrl, privateKey, contractAddress, contractAbiPath } = require('./config');
 
-const web3 = new Web3(alchemyUrl || 'http://127.0.0.1:8545');
+const web3 = new Web3(rpcUrl || 'http://127.0.0.1:8545');
+
+function normalizePrivateKey(value) {
+  if (!value) return '';
+  return value.startsWith('0x') ? value : `0x${value}`;
+}
 
 function loadAbi() {
   if (!fs.existsSync(contractAbiPath)) throw new Error(`ABI not found: ${contractAbiPath}`);
@@ -17,8 +22,9 @@ function getContract() {
 }
 
 async function sendTx(txObject) {
-  if (!privateKey) throw new Error('PRIVATE_KEY not set');
-  const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+  const normalizedKey = normalizePrivateKey(privateKey);
+  if (!normalizedKey) throw new Error('PRIVATE_KEY not set');
+  const account = web3.eth.accounts.privateKeyToAccount(normalizedKey);
   const from = account.address;
   const chainId = await web3.eth.getChainId();
   const nonce = await web3.eth.getTransactionCount(from, 'pending');

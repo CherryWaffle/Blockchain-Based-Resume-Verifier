@@ -10,7 +10,7 @@ dependencies:
 networks:
   default: development
   development:
-    host: http://127.0.0.1
+    host: http://127.0.0.1:8545
     cmd_settings:
       accounts: 10
   polygon-amoy:

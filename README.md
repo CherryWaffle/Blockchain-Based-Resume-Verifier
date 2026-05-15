@@ -1,12 +1,12 @@
 # Blockchain-Based Resume Verifier 🔗
 
-Credential verification for resumes on Polygon Amoy. Issuers publish structured credentials to IPFS, the backend writes the CID on-chain, and verifiers can check authenticity and status in real time. 🧾
+Credential verification for resumes on Ganache or Polygon Amoy. Issuers publish structured credentials to IPFS, the backend writes the CID on-chain, and verifiers can check authenticity and status in real time. 🧾
 
 ## Highlights
 
 - Role-based issuance and revocation using OpenZeppelin `AccessControl`
 - IPFS storage via Pinata for full credential payloads
-- Polygon Amoy deployment with a thin Node/Express API
+- Ganache local chain or Polygon Amoy deployment with a thin Node/Express API
 - React dashboard for issuer, candidate, and verifier workflows
 
 ## Tech Stack
@@ -39,8 +39,9 @@ Create a root `.env` (copy from `.env.example`). These values are required:
 
 | Key | Description |
 | --- | --- |
+| `RPC_URL` | RPC URL (Ganache: `http://127.0.0.1:8545`) |
 | `PRIVATE_KEY` | Issuer/admin wallet private key (never commit) |
-| `ALCHEMY_AMOY_URL` | Polygon Amoy RPC URL |
+| `ALCHEMY_AMOY_URL` | Optional Polygon Amoy RPC URL |
 | `CONTRACT_ADDRESS` | Deployed contract address |
 | `CONTRACT_ABI_PATH` | ABI path (use `backend/abi/ResumeVerifier.json`) |
 | `PINATA_API_KEY` | Pinata API key |
@@ -72,12 +73,26 @@ Outputs:
 - `build/contracts/ResumeVerifier.json`
 - `backend/abi/ResumeVerifier.json`
 
-### 3) Deploy to Polygon Amoy
+### 3) Start Ganache (local chain)
 
-Ensure your `.env` has `PRIVATE_KEY` and `ALCHEMY_AMOY_URL`, then deploy:
+Install Ganache if needed:
 
 ```bash
-node -e "const fs=require('fs');const Web3Pkg=require('web3');const Web3=Web3Pkg.Web3||Web3Pkg;require('dotenv').config();const w=new Web3(process.env.ALCHEMY_AMOY_URL);const pk=(process.env.PRIVATE_KEY||'').trim();const pkFixed=pk.startsWith('0x')?pk:'0x'+pk;const acct=w.eth.accounts.privateKeyToAccount(pkFixed);w.eth.accounts.wallet.add(acct);(async()=>{const art=JSON.parse(fs.readFileSync('build/contracts/ResumeVerifier.json','utf8'));const c=new w.eth.Contract(art.abi);const tx=c.deploy({data:'0x'+art.bytecode});const gas=await tx.estimateGas();const maxPriorityFeePerGas=w.utils.toWei('30','gwei');const maxFeePerGas=w.utils.toWei('60','gwei');const inst=await tx.send({from:acct.address,gas,maxPriorityFeePerGas,maxFeePerGas});console.log('DEPLOYED',inst.options.address);})().catch(e=>{console.error(e);process.exit(1)});"
+npm install -g ganache
+```
+
+Start the local chain:
+
+```bash
+ganache -p 8545
+```
+
+Copy one of the private keys from Ganache into your `.env` as `PRIVATE_KEY` and set `RPC_URL=http://127.0.0.1:8545`. If you use MetaMask, add a custom network with the Ganache RPC URL and chain ID shown in the Ganache output.
+
+### 4) Deploy to Ganache (local)
+
+```bash
+node -e "const fs=require('fs');const Web3Pkg=require('web3');const Web3=Web3Pkg.Web3||Web3Pkg;require('dotenv').config();const rpc=process.env.RPC_URL||'http://127.0.0.1:8545';const w=new Web3(rpc);const pk=(process.env.PRIVATE_KEY||'').trim();const pkFixed=pk.startsWith('0x')?pk:'0x'+pk;const acct=w.eth.accounts.privateKeyToAccount(pkFixed);w.eth.accounts.wallet.add(acct);(async()=>{const art=JSON.parse(fs.readFileSync('build/contracts/ResumeVerifier.json','utf8'));const c=new w.eth.Contract(art.abi);const tx=c.deploy({data:'0x'+art.bytecode});const gas=await tx.estimateGas();const gasPrice=await w.eth.getGasPrice();const inst=await tx.send({from:acct.address,gas,gasPrice});console.log('DEPLOYED',inst.options.address);})().catch(e=>{console.error(e);process.exit(1)});"
 ```
 
 Update `.env` with the deployed address:
@@ -86,7 +101,7 @@ Update `.env` with the deployed address:
 CONTRACT_ADDRESS=0xYourDeployedAddress
 ```
 
-### 4) Start backend
+### 5) Start backend
 
 ```bash
 cd backend
@@ -96,7 +111,7 @@ npm run dev
 
 If you use MongoDB Atlas, whitelist your current IP (or temporarily `0.0.0.0/0`). ⚠️
 
-### 5) Start frontend
+### 6) Start frontend
 
 ```bash
 cd frontend
@@ -105,6 +120,14 @@ npm run dev
 ```
 
 Open the Vite URL printed in the terminal.
+
+### Deploy to Polygon Amoy (optional)
+
+Ensure your `.env` has `PRIVATE_KEY` and `ALCHEMY_AMOY_URL`, then deploy:
+
+```bash
+node -e "const fs=require('fs');const Web3Pkg=require('web3');const Web3=Web3Pkg.Web3||Web3Pkg;require('dotenv').config();const w=new Web3(process.env.ALCHEMY_AMOY_URL);const pk=(process.env.PRIVATE_KEY||'').trim();const pkFixed=pk.startsWith('0x')?pk:'0x'+pk;const acct=w.eth.accounts.privateKeyToAccount(pkFixed);w.eth.accounts.wallet.add(acct);(async()=>{const art=JSON.parse(fs.readFileSync('build/contracts/ResumeVerifier.json','utf8'));const c=new w.eth.Contract(art.abi);const tx=c.deploy({data:'0x'+art.bytecode});const gas=await tx.estimateGas();const maxPriorityFeePerGas=w.utils.toWei('30','gwei');const maxFeePerGas=w.utils.toWei('60','gwei');const inst=await tx.send({from:acct.address,gas,maxPriorityFeePerGas,maxFeePerGas});console.log('DEPLOYED',inst.options.address);})().catch(e=>{console.error(e);process.exit(1)});"
+```
 
 ## API Endpoints
 
