@@ -170,6 +170,7 @@ Do not commit secrets. The `.gitignore` already excludes:
 - **MongoDB Atlas connect error**: add your IP to Atlas Network Access.
 - **Low gas tip error**: increase `maxPriorityFeePerGas` / `maxFeePerGas` in deploy command.
 - **Frontend styles broken**: reinstall frontend deps (`npm install`).
+- **Live updates**: the UI listens to `CredentialIssued` and `CredentialRevoked` events to update immediately.
 - **Wrong network in MetaMask**: the UI will prompt to switch to Polygon Amoy.
 
 ## License

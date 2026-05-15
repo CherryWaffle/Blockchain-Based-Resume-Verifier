@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BrowserProvider } from 'ethers';
+import { BrowserProvider, Contract } from 'ethers';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '';
@@ -288,7 +288,7 @@ function App() {
     }
   }
 
-  async function handleRevokeCredential(event) {
+  async function handleRevokeCredential(event, overrideId) {
     event.preventDefault();
     try {
       const networkOk = await ensureTargetNetwork();
@@ -297,7 +297,8 @@ function App() {
         setNotice('Connect MetaMask to sign the revocation request.');
         return;
       }
-      if (!issuerForm.revokeCredentialId) {
+      const revokeId = overrideId || issuerForm.revokeCredentialId;
+      if (!revokeId) {
         setNotice('Credential ID is required for revocation.');
         return;
       }
@@ -325,7 +326,7 @@ function App() {
       };
       const typedDataMessage = {
         issuer,
-        credentialId: String(issuerForm.revokeCredentialId),
+        credentialId: String(revokeId),
         nonce,
         deadline,
       };
@@ -340,7 +341,7 @@ function App() {
           signature,
           nonce,
           deadline,
-          credentialId: issuerForm.revokeCredentialId,
+          credentialId: revokeId,
         }),
       });
       setNotice(`Credential revoked. Tx: ${result.receipt?.transactionHash || 'submitted'}`);
@@ -350,6 +351,61 @@ function App() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!canUseBrowserWallet || !CONTRACT_ADDRESS) return undefined;
+
+    let active = true;
+    const provider = new BrowserProvider(window.ethereum);
+    const contract = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+    const handleIssued = (credentialId, candidate, issuer, candidateName, degree, institution, ipfsCid) => {
+      if (!active) return;
+      setCandidateCredentials((prev) => {
+        const id = String(credentialId);
+        if (prev.some((item) => String(item.credential_id) === id)) return prev;
+        const entry = {
+          credential_id: id,
+          valid: true,
+          revoked: false,
+          expired: false,
+          candidate_wallet: candidate,
+          issuer_wallet: issuer,
+          candidate_name: candidateName,
+          degree,
+          institution,
+          issue_date: Math.floor(Date.now() / 1000),
+          expiry_date: 0,
+          ipfs_cid: ipfsCid,
+          ipfs_payload: null
+        };
+        return [entry, ...prev];
+      });
+    };
+
+    const handleRevoked = (credentialId) => {
+      if (!active) return;
+      setCandidateCredentials((prev) =>
+        prev.map((item) =>
+          String(item.credential_id) === String(credentialId)
+            ? { ...item, revoked: true, valid: false }
+            : item
+        )
+      );
+      if (verifierResult?.credential_id && String(verifierResult.credential_id) === String(credentialId)) {
+        setVerifierResult({ ...verifierResult, revoked: true, valid: false });
+      }
+    };
+
+    contract.on('CredentialIssued', handleIssued);
+    contract.on('CredentialRevoked', handleRevoked);
+
+    return () => {
+      active = false;
+      contract.off('CredentialIssued', handleIssued);
+      contract.off('CredentialRevoked', handleRevoked);
+    };
+  }, [canUseBrowserWallet, CONTRACT_ADDRESS, verifierResult]);
 
   async function loadCandidateCredentials(event) {
     event?.preventDefault();
@@ -601,6 +657,16 @@ function App() {
                       <summary className="cursor-pointer text-sm font-semibold text-emerald-200">View IPFS payload</summary>
                       <pre className="mt-3 overflow-auto text-xs text-slate-300">{JSON.stringify(credential.ipfs_payload, null, 2)}</pre>
                     </details>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        className={secondaryButtonClass}
+                        type="button"
+                        onClick={(event) => handleRevokeCredential(event, credential.credential_id)}
+                        disabled={busy}
+                      >
+                        Revoke
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
