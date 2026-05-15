@@ -52,6 +52,10 @@ Optional frontend env:
 
 - `VITE_BACKEND_URL` (defaults to `http://localhost:8000`)
 - `VITE_CONTRACT_ADDRESS` (required for secure issuance signing)
+- `VITE_AMOY_RPC_URL` (optional, used when adding Polygon Amoy in MetaMask)
+- `VITE_GANACHE_RPC_URL` (default `http://127.0.0.1:8545`)
+- `VITE_GANACHE_CHAIN_ID` (default `1337`)
+- `VITE_DEFAULT_NETWORK` (`amoy` or `ganache`)
 
 ## Build & Run 🚀
 
@@ -164,6 +168,7 @@ Do not commit secrets. The `.gitignore` already excludes:
 - **MongoDB Atlas connect error**: add your IP to Atlas Network Access.
 - **Low gas tip error**: increase `maxPriorityFeePerGas` / `maxFeePerGas` in deploy command.
 - **Frontend styles broken**: reinstall frontend deps (`npm install`).
+- **Wrong network in MetaMask**: the UI will prompt to switch to Polygon Amoy.
 
 ## License
 

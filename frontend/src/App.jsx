@@ -3,6 +3,28 @@ import { BrowserProvider } from 'ethers';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '';
+const DEFAULT_NETWORK = (import.meta.env.VITE_DEFAULT_NETWORK || 'amoy').toLowerCase();
+
+const NETWORKS = {
+  amoy: {
+    id: 80002,
+    name: 'Polygon Amoy',
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+    rpcUrls: [import.meta.env.VITE_AMOY_RPC_URL || ''],
+    blockExplorerUrls: ['https://www.oklink.com/amoy']
+  },
+  ganache: {
+    id: Number(import.meta.env.VITE_GANACHE_CHAIN_ID || 1337),
+    name: 'Ganache Local',
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: [import.meta.env.VITE_GANACHE_RPC_URL || 'http://127.0.0.1:8545'],
+    blockExplorerUrls: []
+  }
+};
+
+function getNetworkKey(key) {
+  return NETWORKS[key] ? key : 'amoy';
+}
 
 const emptyIssuerForm = {
   issuerAddress: '',
@@ -58,6 +80,8 @@ function App() {
   const [candidateCredentials, setCandidateCredentials] = useState([]);
   const [verifierQuery, setVerifierQuery] = useState(emptyVerifierQuery);
   const [verifierResult, setVerifierResult] = useState(null);
+  const [chainId, setChainId] = useState(null);
+  const [targetNetwork, setTargetNetwork] = useState(getNetworkKey(DEFAULT_NETWORK));
 
   const canUseBrowserWallet = useMemo(() => typeof window !== 'undefined' && Boolean(window.ethereum), []);
 
@@ -71,16 +95,62 @@ function App() {
       }
     });
 
+    window.ethereum.request({ method: 'eth_chainId' }).then((id) => {
+      if (mounted) setChainId(Number(id));
+    });
+
     const handleAccountsChanged = (accounts) => {
       setWalletAddress(accounts?.[0] || '');
     };
 
+    const handleChainChanged = (id) => {
+      setChainId(Number(id));
+    };
+
     window.ethereum.on('accountsChanged', handleAccountsChanged);
+    window.ethereum.on('chainChanged', handleChainChanged);
     return () => {
       mounted = false;
       window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      window.ethereum.removeListener('chainChanged', handleChainChanged);
     };
   }, [canUseBrowserWallet]);
+
+  async function ensureTargetNetwork() {
+    if (!canUseBrowserWallet) return false;
+    const target = NETWORKS[targetNetwork];
+    const currentChainId = chainId ?? Number(await window.ethereum.request({ method: 'eth_chainId' }));
+    if (currentChainId === target.id) return true;
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x' + target.id.toString(16) }],
+      });
+      setChainId(target.id);
+      return true;
+    } catch (error) {
+      if (error?.code === 4902) {
+        if (!target.rpcUrls[0]) {
+          setNotice(`RPC URL missing for ${target.name}. Set the VITE_AMOY_RPC_URL or VITE_GANACHE_RPC_URL env.`);
+          return false;
+        }
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x' + target.id.toString(16),
+            chainName: target.name,
+            nativeCurrency: target.nativeCurrency,
+            rpcUrls: target.rpcUrls,
+            blockExplorerUrls: target.blockExplorerUrls,
+          }],
+        });
+        setChainId(target.id);
+        return true;
+      }
+      setNotice(error?.message || `Please switch MetaMask to ${target.name}.`);
+      return false;
+    }
+  }
 
   async function connectWallet() {
     if (!canUseBrowserWallet) {
@@ -90,6 +160,7 @@ function App() {
 
     try {
       setConnecting(true);
+      await ensureTargetNetwork();
       const provider = new BrowserProvider(window.ethereum);
       await provider.send('eth_requestAccounts', []);
       const signer = await provider.getSigner();
@@ -138,6 +209,8 @@ function App() {
   async function handleIssueCredential(event) {
     event.preventDefault();
     try {
+      const networkOk = await ensureTargetNetwork();
+      if (!networkOk) return;
       if (!walletAddress) {
         setNotice('Connect MetaMask to sign the issuance request.');
         return;
@@ -277,6 +350,7 @@ function App() {
   const shellCard = 'rounded-3xl border border-white/10 bg-slate-950/70 shadow-2xl shadow-emerald-950/10 backdrop-blur-xl';
   const inputClass = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-emerald-400/60 focus:bg-white/8';
   const buttonClass = 'rounded-2xl bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60';
+  const secondaryButtonClass = 'rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60';
 
   return (
     <div className="min-h-screen px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
@@ -298,12 +372,39 @@ function App() {
                 <span className="font-semibold text-slate-100">{walletAddress ? shortenAddress(walletAddress) : 'Not connected'}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
+                <span>Network</span>
+                <span className="font-semibold text-slate-100">
+                  {chainId ? (chainId === NETWORKS[targetNetwork].id ? NETWORKS[targetNetwork].name : `Chain ${chainId}`) : 'Unknown'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Target</span>
+                <select
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-100"
+                  value={targetNetwork}
+                  onChange={(event) => setTargetNetwork(getNetworkKey(event.target.value))}
+                >
+                  <option value="amoy">Polygon Amoy</option>
+                  <option value="ganache">Ganache Local</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between gap-4">
                 <span>Backend</span>
                 <span className="font-semibold text-emerald-300">{BACKEND_URL}</span>
               </div>
-              <button className={buttonClass} onClick={connectWallet} disabled={connecting}>
+              {chainId && chainId !== NETWORKS[targetNetwork].id && (
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  Wrong network. Switch MetaMask to {NETWORKS[targetNetwork].name}.
+                </div>
+              )}
+              <div className="grid gap-2">
+                <button className={buttonClass} onClick={connectWallet} disabled={connecting}>
                 {connecting ? 'Connecting...' : walletAddress ? 'Reconnect MetaMask' : 'Connect MetaMask'}
-              </button>
+                </button>
+                <button className={secondaryButtonClass} onClick={ensureTargetNetwork} disabled={!canUseBrowserWallet}>
+                  Switch to {NETWORKS[targetNetwork].name}
+                </button>
+              </div>
               <p className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-slate-400">{notice}</p>
             </div>
           </div>
