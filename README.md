@@ -145,6 +145,8 @@ node -e "const fs=require('fs');const Web3Pkg=require('web3');const Web3=Web3Pkg
 	- body: `{ "issuer": "0x..." }`
 - `POST /issuer/issue`
 	- body: `{ "issuer", "signature", "nonce", "deadline", "candidateWallet", "candidateName", "degree", "institution", "issueDate", "expiryDate", "metadata" }`
+- `POST /issuer/revoke`
+	- body: `{ "issuer", "signature", "nonce", "deadline", "credentialId" }`
 - `GET /candidate/by-owner/:owner`
 - `GET /verify/onchain/:credentialId`
 

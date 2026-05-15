@@ -36,6 +36,7 @@ const emptyIssuerForm = {
   expiryDate: '',
   issuerName: '',
   email: '',
+  revokeCredentialId: '',
 };
 
 const emptyCandidateQuery = { wallet: '' };
@@ -287,6 +288,69 @@ function App() {
     }
   }
 
+  async function handleRevokeCredential(event) {
+    event.preventDefault();
+    try {
+      const networkOk = await ensureTargetNetwork();
+      if (!networkOk) return;
+      if (!walletAddress) {
+        setNotice('Connect MetaMask to sign the revocation request.');
+        return;
+      }
+      if (!issuerForm.revokeCredentialId) {
+        setNotice('Credential ID is required for revocation.');
+        return;
+      }
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const network = await provider.getNetwork();
+      const chainId = Number(network.chainId);
+      const issuer = await signer.getAddress();
+      const nonce = (BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1000000))).toString();
+      const deadline = Math.floor(Date.now() / 1000) + 10 * 60;
+
+      const typedDataDomain = {
+        name: 'ResumeVerifier',
+        version: '1',
+        chainId,
+        verifyingContract: CONTRACT_ADDRESS,
+      };
+      const typedDataTypes = {
+        RevokeCredential: [
+          { name: 'issuer', type: 'address' },
+          { name: 'credentialId', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+        ],
+      };
+      const typedDataMessage = {
+        issuer,
+        credentialId: String(issuerForm.revokeCredentialId),
+        nonce,
+        deadline,
+      };
+
+      const signature = await signer.signTypedData(typedDataDomain, typedDataTypes, typedDataMessage);
+
+      setBusy(true);
+      const result = await requestJson('/issuer/revoke', {
+        method: 'POST',
+        body: JSON.stringify({
+          issuer,
+          signature,
+          nonce,
+          deadline,
+          credentialId: issuerForm.revokeCredentialId,
+        }),
+      });
+      setNotice(`Credential revoked. Tx: ${result.receipt?.transactionHash || 'submitted'}`);
+    } catch (error) {
+      setNotice(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function loadCandidateCredentials(event) {
     event?.preventDefault();
     if (!candidateQuery.wallet) {
@@ -470,6 +534,27 @@ function App() {
                     {busy ? 'Processing...' : 'Upload to IPFS and issue'}
                   </button>
                 </div>
+              </form>
+            </div>
+
+            <div className={`${shellCard} p-6`}>
+              <div className="mb-5">
+                <h2 className="text-2xl font-semibold">Revoke credential</h2>
+                <p className="text-sm text-slate-400">Revoke a credential ID on-chain (admin or issuer only).</p>
+              </div>
+              <form className="space-y-4" onSubmit={handleRevokeCredential}>
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Credential ID</label>
+                  <input
+                    className={inputClass}
+                    value={issuerForm.revokeCredentialId}
+                    onChange={(event) => setIssuerForm((current) => ({ ...current, revokeCredentialId: event.target.value }))}
+                    placeholder="e.g. 1"
+                  />
+                </div>
+                <button className={buttonClass} type="submit" disabled={busy}>
+                  Revoke credential
+                </button>
               </form>
             </div>
           </section>

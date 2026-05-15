@@ -157,4 +157,71 @@ router.post('/issue', async (req, res) => {
   }
 });
 
+router.post('/revoke', async (req, res) => {
+  try {
+    const { issuer, signature, nonce, deadline, credentialId } = req.body;
+
+    if (!issuer || !signature || !nonce || !deadline || !credentialId) {
+      return res.status(400).json({ error: 'issuer, signature, nonce, deadline, credentialId are required' });
+    }
+
+    if (!contractAddress) {
+      return res.status(500).json({ error: 'CONTRACT_ADDRESS not configured' });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (Number(deadline) < now) {
+      return res.status(400).json({ error: 'signature expired' });
+    }
+
+    const chainId = await web3.eth.getChainId();
+    const typedData = {
+      domain: {
+        name: 'ResumeVerifier',
+        version: '1',
+        chainId,
+        verifyingContract: contractAddress
+      },
+      types: {
+        RevokeCredential: [
+          { name: 'issuer', type: 'address' },
+          { name: 'credentialId', type: 'uint256' },
+          { name: 'nonce', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' }
+        ]
+      },
+      message: {
+        issuer,
+        credentialId: String(credentialId),
+        nonce: String(nonce),
+        deadline: Number(deadline)
+      }
+    };
+
+    const recovered = verifyTypedData(typedData.domain, typedData.types, typedData.message, signature);
+    if (normalizeAddress(recovered) !== normalizeAddress(issuer)) {
+      return res.status(401).json({ error: 'invalid issuer signature' });
+    }
+
+    const nonceKey = String(nonce);
+    const issuerKey = normalizeAddress(issuer);
+    const existing = await SignedRequest.findOne({ issuer: issuerKey, nonce: nonceKey }).lean();
+    if (existing) {
+      return res.status(409).json({ error: 'nonce already used' });
+    }
+    await SignedRequest.create({ issuer: issuerKey, nonce: nonceKey });
+
+    const contract = getContract();
+    const data = contract.methods.revokeCredential(String(credentialId)).encodeABI();
+    const tx = { to: contract.options.address, data, gas: 400000 };
+    const receipt = await sendTx(tx);
+
+    await Credential.updateOne({ credentialId: String(credentialId) }, { $set: { revoked: true } }).exec();
+
+    res.json({ success: true, receipt });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
